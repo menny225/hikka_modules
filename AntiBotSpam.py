@@ -82,7 +82,7 @@ class ABS(loader.Module):
             "ABS",
             silent=True,
             archive=True,
-            avatar="https://ru.botostore.com/netcat_files/6/7/preview_153367_1618236665.jpg",
+            avatar="https://raw.githubusercontent.com/menny225/hikka_modules/master/assets/ASBPic.jpg",
             _folder="hikka"
         )
 
