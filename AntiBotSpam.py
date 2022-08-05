@@ -1,4 +1,4 @@
-__version__ = (1, 0, 0)
+__version__ = (1, 0, 1)
 
 
 import logging
@@ -9,21 +9,22 @@ import re
 from typing import Union
 
 from telethon.tl.functions.contacts import BlockRequest, UnblockRequest
-from telethon.tl.functions.messages import DeleteHistoryRequest, DeleteMessagesRequest
+from telethon.tl.functions.messages import DeleteHistoryRequest, SendMessageRequest
 from telethon.tl.functions.users import GetFullUserRequest
-from telethon.tl.functions.channels import GetFullChannelRequest, InviteToChannelRequest, EditAdminRequest
+from telethon.tl.functions.channels import  InviteToChannelRequest, EditAdminRequest
 from telethon.tl.types import Message, PeerUser, ChatAdminRights
 
 from .. import loader, utils
+from ..inline.types import InlineCall
+
 
 logger = logging.getLogger(__name__)
-
 
 def format_(state: Union[bool, None]) -> str:
     if state is None:
         return "❔"
 
-    return "✅" if state else "🚫 Not"
+    return "✅" if state else "🚫"
 
 
 @loader.tds
@@ -32,47 +33,43 @@ class ABS(loader.Module):
 
     strings = {
         "name": "AntiBotSpam",
-        "state": "⚔️ <b>AntiBotSpam is now {}</b>\n<i>Notify? - {}Delete dialog? - {}</i>",
+
+        "settings": "⚙ Settings ⚙",
+        "notify": "📩 Report about the ban: {}",
+        "del": "🗑 Delete dialogue: {}",
+        "close": "🔻 Close 🔻",
+
+        "state": "⚔ <b>AntiBotSpam is now: {}</b>\n<i>Notify? - {}Delete dialog? - {}</i>",
         "ban":"🚫 @{} is BANNED! 🚫",
-        "clear": "🗑️ List of users cleared!",
-        "unbanned":"🕊️ Bot {} succesfully unbanned 🕊️",
-        "unban": "ℹ️ Choose a message about blocking the bot",
-        "args": "ℹ️ <b>Example usage: </b><code>.spamset 0 0</code>",
+        "clear": "🗑 List of users cleared!",
+        "unbanned": "🕊 Bot {} succesfully unbanned 🕊",
+        "unban": "ℹ Choose a message about blocking the bot",
         "config": "😶‍🌫️ <b>Config saved</b>\n<i>Notify? - {}\nDelete dialog? - {}</i>",
         "_cmd_doc_spam": "Disable\\Enable Protection",
         "_cmd_doc_clear": "Clear user list",
         "_cmd_doc_unban": "Unblock BOT",
-        "_cmd_doc_spamset": "<Report about the ban?> <Delete dialogue?> - in the format 1/0",
+        "_cmd_doc_spamset": "MOD Config",
         "_cls_doc": "Blocks and deletes incoming messages from bots with which you did not start a dialogue",
     }
 
     strings_ru = {
-        "state": "⚔️ <b>Текущее состояние AntiBotSpam: {}</b>\n<i>Сообщать о бане? - {}\nУдалять диалог? - {}</i>",
+        "settings": "⚙ Настройки ⚙",
+        "notify": "📩 Сообщать о бане: {}",
+        "del": "🗑 Удалять диалог: {}",
+        "close": "🔻 Закрыть 🔻",
+
+        "state": "⚔ <b>Текущее состояние AntiBotSpam: {}</b>\n<i>Сообщать о бане? - {}\nУдалять диалог? - {}</i>",
         "ban": "🚫 @{} is BANNED! 🚫",
-        "clear": "🗑️ Список пользователей очищен!",
-        "unbanned":"🕊️ Бот {} успешно разблокирован 🕊️",
-        "unban": "ℹ️ Выберете сообщение о блокировке бота",
-        "args": "ℹ️ <b>Пример: </b><code>.spamset 0 0</code>",
+        "clear": "🗑 Список пользователей очищен!",
+        "unbanned": "🕊 Бот {} успешно разблокирован 🕊",
+        "unban": "ℹ Выберете сообщение о блокировке бота",
         "config": "😶‍🌫️ <b>Конфиг сохранен</b>\n<i>Сообщать о бане? - {}\nУдалять диалог? - {}</i>",
         "_cmd_doc_spam": "Выключить\\Включить защиту",
         "_cmd_doc_clear": "Очистить список пользователей",
         "_cmd_doc_unban": "Разблокировать бота",
-        "_cmd_doc_spamset": "<Сообщать о бане?> <Удалять диалог?> - в формате 1/0",
+        "_cmd_doc_spamset": "Конфигурация модуля",
         "_cls_doc": "Блокирует и удаляет входящие сообщения от ботов с которыми вы не начинали диалог",
     }
-
-    def __init__(self):
-        self.config = loader.ModuleConfig(
-
-        )
-
-
-
-    async def client_ready(self, client, db):
-        self._whitelist = self.get("whitelist", [])
-        self._ratelimit = []
-        self._ratelimit_timeout = 5 * 60
-        self._ratelimit_threshold = 10
 
     async def on_dlmod(self, client, db):
         """Creating chat for logging"""
@@ -91,63 +88,103 @@ class ABS(loader.Module):
             channel=result[0],
             user_id=self.inline.bot.id,
             admin_rights=ChatAdminRights(
-                change_info=True,
                 edit_messages=True,
                 post_messages=True,
                 delete_messages=True,
-                ban_users=True,
-                invite_users=True,
-                pin_messages=True,
-                add_admins=True,
                 anonymous=True,
-                manage_call=True,
                 other=True
             ),
             rank='Logger'
             )
         )
-        self.set("state","true")
-        self.set("notify", "true")
-        self.set("delete", "true")
-        self.set("chat_id", str(result[0].id))
+
+        self.set("chat_id", f"-100{str(result[0].id)}")
+
+    async def client_ready(self, client, db):
+        self._chat_id = self.get("chat_id")
+        self._whitelist = self.get("whitelist", [])
+        self._state = self.get("state",False)
+        self._notify = self.get("notify",False)
+        self._delete = self.get("delete", False)
 
     async def spamcmd(self, message: Message):
         """Toggle AntiBotSpam"""
-        current = self.get("state", False)
-        new = not current
-        self.set("state", new)
+        self._state = not self._state
+        self.set("state", self._state)
         await utils.answer(
             message,
             self.strings("state").format(
-                "on" if new else "off",
-                "yes" if self.get("notify", False) else "no",
-                "yes" if self.get("delete", False) else "no",
+                "on" if self._state else "off",
+                format_(self.get("notify")),
+                format_(self.get("delete")),
             ),
         )
 
     async def spamsetcmd(self, message: Message):
-        """<Notify?> <Delete dialog?> - Configure AntiBotSpam - param are 1/0"""
-        args = utils.get_args(message)
-        if not args or len(args) != 2 or any(not _.isdigit() for _ in args):
-            await utils.answer(message, self.strings("args"))
-            return
-
-        notify, delete = list(map(int, args))
-
-        self.set("notify", notify)
-        self.set("delete", delete)
-
-        await utils.answer(
-            message,
-            self.strings("config").format(
-                "yes" if notify else "no",
-                "yes" if delete else "no",
-            ),
+        await self.inline.form(
+            text= self.strings("settings"),
+            message=message,
+            reply_markup=[
+                [
+                    {
+                        "text": self.strings("notify").format(format_(self._notify)),
+                        "callback": self._setter,
+                        "kwargs": {"param": "notify"},
+                    }
+                ],
+                [
+                    {
+                        "text": self.strings("del").format(format_(self._delete)),
+                        "callback": self._setter,
+                        "kwargs": {"param": "delete"},
+                    }
+                ],
+                [
+                    {
+                        "text": self.strings("close"),
+                        "action": "close",
+                    }
+                ],
+            ],
+            force_me= True,
+            ttl=60,
+            silent=True,  # optional: Send form silently
         )
 
+    async def _setter(self, call: InlineCall, param: str):
+        """Changing settiings"""
+        if param == "notify":
+            self._notify = not self._notify
+            self.set("notify", self._notify)
+        else:
+            self._delete = not self._delete
+            self.set("delete", self._delete)
 
-
-
+        await call.edit(
+            text= self.strings("settings"),
+            reply_markup=[
+                [
+                    {
+                        "text": self.strings("notify").format(format_(self._notify)),
+                        "callback": self._setter,
+                        "kwargs": {"param": "notify"},
+                    }
+                ],
+                [
+                    {
+                        "text": self.strings("del").format(format_(self._delete)),
+                        "callback": self._setter,
+                        "kwargs": {"param": "delete"},
+                    }
+                ],
+                [
+                    {
+                        "text": self.strings("close"),
+                        "action": "close",
+                    }
+                ],
+            ],
+        )
 
     async def unbancmd(self, message: Message):
         """Unbanning BOT"""
@@ -173,7 +210,6 @@ class ABS(loader.Module):
     async def clearcmd(self, message: Message):
         """Clear db"""
         self._whitelist = []
-        self._whitelist = list(set(self._whitelist))
         self.set("whitelist", self._whitelist)
         await utils.answer(message, self.strings("clear"))
         time.sleep(2)
@@ -193,6 +229,7 @@ class ABS(loader.Module):
             or not self.get("state", False)
             or utils.get_chat_id(message)
             in {
+                1271266957,  # @replies
                 777000,  # Telegram Notifications
                 self._tg_id,  # Self
             }
@@ -228,28 +265,17 @@ class ABS(loader.Module):
             else:
                 return self._approve(cid, "ignore_users")
 
-        self._ratelimit = list(
-            filter(
-                lambda x: x + self._ratelimit_timeout < time.time(),
-                self._ratelimit,
-            )
-        )
-
-        if len(self._ratelimit) < self._ratelimit_threshold:
-
-            self._ratelimit += [round(time.time())]
-
         await self._client.send_read_acknowledge(cid) # Read message
 
         await self._client(BlockRequest(id=cid)) # Block user
 
-        if self.get("delete", False):
+        if self._delete:
             await self._client(
                 DeleteHistoryRequest(peer=cid, just_clear=True, max_id=0)
             )
 
         self._approve(cid, "banned")
 
-        if self.get("notify", False):
+        if self._notify:
             dialog = await self._client.get_entity(peer)
-            await self.inline.bot.send_message(f"-100{self.get('chat_id')}", self.strings("ban").format(dialog.username))
+            await self.inline.bot.send_message(self._chat_id, self.strings("ban").format(dialog.username))
