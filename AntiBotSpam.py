@@ -1,5 +1,4 @@
-__version__ = (1, 0, 1)
-
+__version__ = (1, 0, 2)
 
 import logging
 import time
@@ -7,9 +6,8 @@ import contextlib
 import re
 
 from typing import Union
-
 from telethon.tl.functions.contacts import BlockRequest, UnblockRequest
-from telethon.tl.functions.messages import DeleteHistoryRequest, SendMessageRequest
+from telethon.tl.functions.messages import DeleteHistoryRequest
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.functions.channels import  InviteToChannelRequest, EditAdminRequest
 from telethon.tl.types import Message, PeerUser, ChatAdminRights
@@ -39,16 +37,14 @@ class ABS(loader.Module):
         "del": "🗑 Delete dialogue: {}",
         "close": "🔻 Close 🔻",
 
-        "state": "⚔ <b>AntiBotSpam is now: {}</b>\n<i>Notify? - {}Delete dialog? - {}</i>",
+        "state": "⚔ AntiBotSpam Activity: {}</i>",
         "ban":"🚫 @{} is BANNED! 🚫",
-        "clear": "🗑 List of users cleared!",
-        "unbanned": "🕊 Bot {} succesfully unbanned 🕊",
+        "clear": "🗑 List of bots cleared!",
+        "unbanned": "🕊 Bot {} unbanned 🕊",
         "unban": "ℹ Choose a message about blocking the bot",
-        "config": "😶‍🌫️ <b>Config saved</b>\n<i>Notify? - {}\nDelete dialog? - {}</i>",
-        "_cmd_doc_spam": "Disable\\Enable Protection",
         "_cmd_doc_clear": "Clear user list",
         "_cmd_doc_unban": "Unblock BOT",
-        "_cmd_doc_spamset": "MOD Config",
+        "_cmd_doc_spam": "MOD Config",
         "_cls_doc": "Blocks and deletes incoming messages from bots with which you did not start a dialogue",
     }
 
@@ -58,16 +54,14 @@ class ABS(loader.Module):
         "del": "🗑 Удалять диалог: {}",
         "close": "🔻 Закрыть 🔻",
 
-        "state": "⚔ <b>Текущее состояние AntiBotSpam: {}</b>\n<i>Сообщать о бане? - {}\nУдалять диалог? - {}</i>",
+        "state": "⚔ Активность AntiBotSpam: {}",
         "ban": "🚫 @{} is BANNED! 🚫",
-        "clear": "🗑 Список пользователей очищен!",
-        "unbanned": "🕊 Бот {} успешно разблокирован 🕊",
+        "clear": "🗑 Список заблокированных очищен!",
+        "unbanned": "🕊 Бот {} разблокирован 🕊",
         "unban": "ℹ Выберете сообщение о блокировке бота",
-        "config": "😶‍🌫️ <b>Конфиг сохранен</b>\n<i>Сообщать о бане? - {}\nУдалять диалог? - {}</i>",
-        "_cmd_doc_spam": "Выключить\\Включить защиту",
         "_cmd_doc_clear": "Очистить список пользователей",
         "_cmd_doc_unban": "Разблокировать бота",
-        "_cmd_doc_spamset": "Конфигурация модуля",
+        "_cmd_doc_spam": "Конфигурация модуля",
         "_cls_doc": "Блокирует и удаляет входящие сообщения от ботов с которыми вы не начинали диалог",
     }
 
@@ -91,8 +85,6 @@ class ABS(loader.Module):
                 edit_messages=True,
                 post_messages=True,
                 delete_messages=True,
-                anonymous=True,
-                other=True
             ),
             rank='Logger'
             )
@@ -103,40 +95,32 @@ class ABS(loader.Module):
     async def client_ready(self, client, db):
         self._chat_id = self.get("chat_id")
         self._whitelist = self.get("whitelist", [])
+        self._blacklist = self.get("blacklist", [])
         self._state = self.get("state",False)
         self._notify = self.get("notify",False)
         self._delete = self.get("delete", False)
 
     async def spamcmd(self, message: Message):
-        """Toggle AntiBotSpam"""
-        self._state = not self._state
-        self.set("state", self._state)
-        await utils.answer(
-            message,
-            self.strings("state").format(
-                "on" if self._state else "off",
-                format_(self.get("notify")),
-                format_(self.get("delete")),
-            ),
-        )
-
-    async def spamsetcmd(self, message: Message):
         await self.inline.form(
             text= self.strings("settings"),
             message=message,
             reply_markup=[
                 [
                     {
+                        "text": self.strings("state").format(format_(self._state)),
+                        "callback": self._setter, "kwargs": {"param": "state"},
+                    }
+                ],
+                [
+                    {
                         "text": self.strings("notify").format(format_(self._notify)),
-                        "callback": self._setter,
-                        "kwargs": {"param": "notify"},
+                        "callback": self._setter, "kwargs": {"param": "notify"},
                     }
                 ],
                 [
                     {
                         "text": self.strings("del").format(format_(self._delete)),
-                        "callback": self._setter,
-                        "kwargs": {"param": "delete"},
+                        "callback": self._setter, "kwargs": {"param": "delete"},
                     }
                 ],
                 [
@@ -156,25 +140,32 @@ class ABS(loader.Module):
         if param == "notify":
             self._notify = not self._notify
             self.set("notify", self._notify)
-        else:
+        elif param == "delete":
             self._delete = not self._delete
             self.set("delete", self._delete)
+        else:
+            self._state = not self._state
+            self.set("state", self._state)
 
         await call.edit(
             text= self.strings("settings"),
             reply_markup=[
                 [
                     {
+                        "text": self.strings("state").format(format_(self._state)),
+                        "callback": self._setter, "kwargs": {"param": "state"},
+                    }
+                ],
+                [
+                    {
                         "text": self.strings("notify").format(format_(self._notify)),
-                        "callback": self._setter,
-                        "kwargs": {"param": "notify"},
+                        "callback": self._setter, "kwargs": {"param": "notify"},
                     }
                 ],
                 [
                     {
                         "text": self.strings("del").format(format_(self._delete)),
-                        "callback": self._setter,
-                        "kwargs": {"param": "delete"},
+                        "callback": self._setter, "kwargs": {"param": "delete"},
                     }
                 ],
                 [
@@ -195,8 +186,8 @@ class ABS(loader.Module):
             await self._client(UnblockRequest(id=ID[0]))
 
             User = await self._client(GetFullUserRequest(id=ID[0]))
-            if User.full_user.id in self._whitelist:
-                self._whitelist.remove(User.full_user.id)
+            if User.full_user.id in self._blacklist:
+                self._blacklist.remove(User.full_user.id)
 
             await utils.answer(message, self.strings("unbanned").format(ID[0]))
             time.sleep(2)
@@ -204,21 +195,35 @@ class ABS(loader.Module):
             await message.delete()
         else:
             await utils.answer(message, self.strings("unban"))
-            time.sleep(2)
-            await message.delete()
 
     async def clearcmd(self, message: Message):
         """Clear db"""
-        self._whitelist = []
-        self.set("whitelist", self._whitelist)
+        self.set("blacklist", [])
         await utils.answer(message, self.strings("clear"))
         time.sleep(2)
         await message.delete()
 
-    def _approve(self, user: int, reason: str = "unknown"):
+    def _approve(self, user: int):
         self._whitelist += [user]
         self._whitelist = list(set(self._whitelist))
         self.set("whitelist", self._whitelist)
+        return
+
+    async def _block(self, user: int):
+        self._blacklist += [user]
+        self._blacklist = list(set(self._blacklist))
+        self.set("blacklist", self._blacklist)
+
+        await self._client.send_read_acknowledge(user)  # Read message
+        await self._client(BlockRequest(id=user))  # Block user
+
+        if self._delete:
+            await self._client(DeleteHistoryRequest(peer=user, just_clear=True, max_id=0))
+
+        if self._notify:
+            dialog = await self._client.get_entity(user)
+            await self.inline.bot.send_message(self._chat_id, self.strings("ban").format(dialog.username))
+
         return
 
     async def watcher(self, message: Message):
@@ -254,28 +259,14 @@ class ABS(loader.Module):
         )[0]
 
         with contextlib.suppress(ValueError):
-
             entity = await self._client.get_entity(peer)
 
             if (
                 entity.bot
             ):
                 if (first_message.sender_id == self._tg_id):
-                    return self._approve(cid, "bot")
+                    return self._approve(cid)
             else:
-                return self._approve(cid, "ignore_users")
+                return self._approve(cid)
 
-        await self._client.send_read_acknowledge(cid) # Read message
-
-        await self._client(BlockRequest(id=cid)) # Block user
-
-        if self._delete:
-            await self._client(
-                DeleteHistoryRequest(peer=cid, just_clear=True, max_id=0)
-            )
-
-        self._approve(cid, "banned")
-
-        if self._notify:
-            dialog = await self._client.get_entity(peer)
-            await self.inline.bot.send_message(self._chat_id, self.strings("ban").format(dialog.username))
+        await self._block(cid)
