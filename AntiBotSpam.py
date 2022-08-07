@@ -32,11 +32,11 @@ class ABS(loader.Module):
 
     strings = {
         "name": "AntiBotSpam",
-        "settings": "⚙ Settings ⚙",
+        "settings": "⚙ <b>Settings:</b>",
         "notify": "📩 Report about the ban: {}",
         "del": "🗑 Delete dialogue: {}",
         "close": "🔻 Close 🔻",
-        "state": "⚔ AntiBotSpam Activity: {}</i>",
+        "state": "⚔ AntiBotSpam Activity: {}",
         "ban": "🚫 @{} is BANNED! 🚫",
         "clear": "🗑 List of bots cleared!",
         "unbanned": "🕊 Bot {} unbanned 🕊",
@@ -48,7 +48,7 @@ class ABS(loader.Module):
     }
 
     strings_ru = {
-        "settings": "⚙ Настройки ⚙",
+        "settings": "⚙ <b>Настройки:</b>",
         "notify": "📩 Сообщать о бане: {}",
         "del": "🗑 Удалять диалог: {}",
         "close": "🔻 Закрыть 🔻",
@@ -119,7 +119,7 @@ class ABS(loader.Module):
 
     async def spamcmd(self, message: Message):
         await self.inline.form(
-            text='',
+            text=self.strings('settings'),
             photo='https://raw.githubusercontent.com/menny225/hikka_modules/master/assets/Settings.png',
             message=message,
             reply_markup=self.form(),
@@ -140,7 +140,7 @@ class ABS(loader.Module):
             self.set("state", self._state)
 
         await call.edit(
-            text='',
+            text=self.strings('settings'),
             reply_markup=self.form(),
             force_me=True,
         )
