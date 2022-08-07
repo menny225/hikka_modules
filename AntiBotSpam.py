@@ -1,4 +1,4 @@
-__version__ = (1, 0, 2)
+__version__ = (1, 0, 3)
 
 import logging
 import time
@@ -9,14 +9,15 @@ from typing import Union
 from telethon.tl.functions.contacts import BlockRequest, UnblockRequest
 from telethon.tl.functions.messages import DeleteHistoryRequest
 from telethon.tl.functions.users import GetFullUserRequest
-from telethon.tl.functions.channels import  InviteToChannelRequest, EditAdminRequest
-from telethon.tl.types import Message, PeerUser, ChatAdminRights
+from telethon.tl.functions.channels import InviteToChannelRequest, EditAdminRequest
+from telethon.tl.types import PeerUser, ChatAdminRights
+from telethon.tl.custom import Message
 
 from .. import loader, utils
 from ..inline.types import InlineCall
 
-
 logger = logging.getLogger(__name__)
+
 
 def format_(state: Union[bool, None]) -> str:
     if state is None:
@@ -31,14 +32,12 @@ class ABS(loader.Module):
 
     strings = {
         "name": "AntiBotSpam",
-
         "settings": "⚙ Settings ⚙",
         "notify": "📩 Report about the ban: {}",
         "del": "🗑 Delete dialogue: {}",
         "close": "🔻 Close 🔻",
-
         "state": "⚔ AntiBotSpam Activity: {}</i>",
-        "ban":"🚫 @{} is BANNED! 🚫",
+        "ban": "🚫 @{} is BANNED! 🚫",
         "clear": "🗑 List of bots cleared!",
         "unbanned": "🕊 Bot {} unbanned 🕊",
         "unban": "ℹ Choose a message about blocking the bot",
@@ -53,7 +52,6 @@ class ABS(loader.Module):
         "notify": "📩 Сообщать о бане: {}",
         "del": "🗑 Удалять диалог: {}",
         "close": "🔻 Закрыть 🔻",
-
         "state": "⚔ Активность AntiBotSpam: {}",
         "ban": "🚫 @{} is BANNED! 🚫",
         "clear": "🗑 Список заблокированных очищен!",
@@ -87,52 +85,46 @@ class ABS(loader.Module):
                 delete_messages=True,
             ),
             rank='Logger'
-            )
+        )
         )
 
         self.set("chat_id", f"-100{str(result[0].id)}")
+
+    def form(self):
+        return [
+            [{
+                "text": self.strings("state").format(format_(self._state)),
+                "callback": self._setter, "kwargs": {"param": "state"},
+            }],
+            [{
+                "text": self.strings("notify").format(format_(self._notify)),
+                "callback": self._setter, "kwargs": {"param": "notify"},
+            },
+                {
+                    "text": self.strings("del").format(format_(self._delete)),
+                    "callback": self._setter, "kwargs": {"param": "delete"},
+                }],
+            [{
+                "text": self.strings("close"),
+                "action": "close",
+            }], ]
 
     async def client_ready(self, client, db):
         self._chat_id = self.get("chat_id")
         self._whitelist = self.get("whitelist", [])
         self._blacklist = self.get("blacklist", [])
-        self._state = self.get("state",False)
-        self._notify = self.get("notify",False)
+        self._state = self.get("state", False)
+        self._notify = self.get("notify", False)
         self._delete = self.get("delete", False)
 
     async def spamcmd(self, message: Message):
         await self.inline.form(
-            text= self.strings("settings"),
+            text='',
+            photo='https://raw.githubusercontent.com/menny225/hikka_modules/master/assets/Settings.png',
             message=message,
-            reply_markup=[
-                [
-                    {
-                        "text": self.strings("state").format(format_(self._state)),
-                        "callback": self._setter, "kwargs": {"param": "state"},
-                    }
-                ],
-                [
-                    {
-                        "text": self.strings("notify").format(format_(self._notify)),
-                        "callback": self._setter, "kwargs": {"param": "notify"},
-                    }
-                ],
-                [
-                    {
-                        "text": self.strings("del").format(format_(self._delete)),
-                        "callback": self._setter, "kwargs": {"param": "delete"},
-                    }
-                ],
-                [
-                    {
-                        "text": self.strings("close"),
-                        "action": "close",
-                    }
-                ],
-            ],
-            force_me= True,
-            ttl=60,
-            silent=True,  # optional: Send form silently
+            reply_markup=self.form(),
+            force_me=True,
+            ttl=10*60,
         )
 
     async def _setter(self, call: InlineCall, param: str):
@@ -148,50 +140,26 @@ class ABS(loader.Module):
             self.set("state", self._state)
 
         await call.edit(
-            text= self.strings("settings"),
-            reply_markup=[
-                [
-                    {
-                        "text": self.strings("state").format(format_(self._state)),
-                        "callback": self._setter, "kwargs": {"param": "state"},
-                    }
-                ],
-                [
-                    {
-                        "text": self.strings("notify").format(format_(self._notify)),
-                        "callback": self._setter, "kwargs": {"param": "notify"},
-                    }
-                ],
-                [
-                    {
-                        "text": self.strings("del").format(format_(self._delete)),
-                        "callback": self._setter, "kwargs": {"param": "delete"},
-                    }
-                ],
-                [
-                    {
-                        "text": self.strings("close"),
-                        "action": "close",
-                    }
-                ],
-            ],
+            text='',
+            reply_markup=self.form(),
+            force_me=True,
         )
 
     async def unbancmd(self, message: Message):
         """Unbanning BOT"""
-        if (await message.get_reply_message()):
-            Reply = await message.get_reply_message()
-            ID = re.findall("@\w*",str(Reply.message))
+        if await message.get_reply_message():
+            reply = await message.get_reply_message()
+            identy = re.findall(r'@\w*', str(reply.message))
 
-            await self._client(UnblockRequest(id=ID[0]))
+            await self._client(UnblockRequest(id=identy[0]))
 
-            User = await self._client(GetFullUserRequest(id=ID[0]))
-            if User.full_user.id in self._blacklist:
-                self._blacklist.remove(User.full_user.id)
+            user = await self._client(GetFullUserRequest(id=identy[0]))
+            if user.full_user.id in self._blacklist:
+                self._blacklist.remove(user.full_user.id)
 
-            await utils.answer(message, self.strings("unbanned").format(ID[0]))
+            await utils.answer(message, self.strings("unbanned").format(identy[0]))
             time.sleep(2)
-            await Reply.delete()
+            await reply.delete()
             await message.delete()
         else:
             await utils.answer(message, self.strings("unban"))
@@ -209,7 +177,7 @@ class ABS(loader.Module):
         self.set("whitelist", self._whitelist)
         return
 
-    async def _block(self, user: int):
+    async def _block(self, user):
         self._blacklist += [user]
         self._blacklist = list(set(self._blacklist))
         self.set("blacklist", self._blacklist)
@@ -237,7 +205,7 @@ class ABS(loader.Module):
                 1271266957,  # @replies
                 777000,  # Telegram Notifications
                 self._tg_id,  # Self
-            }
+                }
         ):
             return
 
@@ -246,8 +214,8 @@ class ABS(loader.Module):
             return
 
         peer = (
-            getattr(getattr(message, "sender", None), "username", None)
-            or message.peer_id
+                getattr(getattr(message, "sender", None), "username", None)
+                or message.peer_id
         )
 
         first_message = (
@@ -262,9 +230,9 @@ class ABS(loader.Module):
             entity = await self._client.get_entity(peer)
 
             if (
-                entity.bot
+                    entity.bot
             ):
-                if (first_message.sender_id == self._tg_id):
+                if first_message.sender_id == self._tg_id:
                     return self._approve(cid)
             else:
                 return self._approve(cid)
