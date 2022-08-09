@@ -41,10 +41,6 @@ class ABS(loader.Module):
         "clear": "🗑 List of bots cleared!",
         "unbanned": "🕊 Bot {} unbanned 🕊",
         "unban": "ℹ Choose a message about blocking the bot",
-        "_cmd_doc_clear": "Clear user list",
-        "_cmd_doc_unban": "Unblock BOT",
-        "_cmd_doc_spam": "MOD Config",
-        "_cls_doc": "Blocks and deletes incoming messages from bots with which you did not start a dialogue",
     }
 
     strings_ru = {
@@ -62,6 +58,14 @@ class ABS(loader.Module):
         "_cmd_doc_spam": "Конфигурация модуля",
         "_cls_doc": "Блокирует и удаляет входящие сообщения от ботов с которыми вы не начинали диалог",
     }
+
+    async def client_ready(self, client, db):
+        self._chat_id = self.get("chat_id")
+        self._whitelist = self.get("whitelist", [])
+        self._blacklist = self.get("blacklist", [])
+        self._state = self.get("state", False)
+        self._notify = self.get("notify", False)
+        self._delete = self.get("delete", False)
 
     async def on_dlmod(self, client, db):
         """Creating chat for logging"""
@@ -109,15 +113,8 @@ class ABS(loader.Module):
                 "action": "close",
             }], ]
 
-    async def client_ready(self, client, db):
-        self._chat_id = self.get("chat_id")
-        self._whitelist = self.get("whitelist", [])
-        self._blacklist = self.get("blacklist", [])
-        self._state = self.get("state", False)
-        self._notify = self.get("notify", False)
-        self._delete = self.get("delete", False)
-
     async def spamcmd(self, message: Message):
+        """MOD Config"""
         await self.inline.form(
             text=self.strings('settings'),
             photo='https://raw.githubusercontent.com/menny225/hikka_modules/master/assets/Settings.png',
@@ -146,7 +143,7 @@ class ABS(loader.Module):
         )
 
     async def unbancmd(self, message: Message):
-        """Unbanning BOT"""
+        """Unblock BOT"""
         if await message.get_reply_message():
             reply = await message.get_reply_message()
             identy = re.findall(r'@\w*', str(reply.message))
@@ -165,7 +162,7 @@ class ABS(loader.Module):
             await utils.answer(message, self.strings("unban"))
 
     async def clearcmd(self, message: Message):
-        """Clear db"""
+        """Clear blacklist in DB"""
         self.set("blacklist", [])
         await utils.answer(message, self.strings("clear"))
         time.sleep(2)
