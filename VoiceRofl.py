@@ -52,7 +52,8 @@ class VoiceRofl(loader.Module):
         )
 
     @staticmethod
-    async def _delmes(self, message: Message):
+    async def _delmes(message: Message, text: str):
+        await utils.answer(message, text)
         time.sleep(2)
         await message.delete()
 
@@ -86,17 +87,13 @@ class VoiceRofl(loader.Module):
                     await self.client.send_file(
                         caption=str(name[0]), entity='VoiceRofls', file=voice, voice_note=True
                     )
-                    await utils.answer(message, self.strings("saved"))
-                    await self._delmes(message)
+                    await self._delmes(message, self.strings("saved"))
                 else:
-                    await utils.answer(message, self.strings("exist"))
-                    await self._delmes(message)
+                    await self._delmes(message, self.strings("exist"))
             else:
-                await utils.answer(message, self.strings("args"))
-                await self._delmes(message)
+                await self._delmes(message, self.strings("args"))
         else:
-            await utils.answer(message, self.strings("pick"))
-            await self._delmes(message)
+            await self._delmes(message, self.strings("pick"))
 
     async def roflcmd(self, message: Message):
         name = utils.get_args(message)
@@ -111,8 +108,6 @@ class VoiceRofl(loader.Module):
                 )
                 await message.delete()
             else:
-                await utils.answer(message, self.strings("unexist"))
-                await self._delmes(message)
+                await self._delmes(message, self.strings("unexist"))
         else:
-            await utils.answer(message, self.strings("args"))
-            await self._delmes(message)
+            await self._delmes(message, self.strings("args"))
