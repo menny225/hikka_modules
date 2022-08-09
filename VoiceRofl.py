@@ -12,7 +12,7 @@ from .. import loader, utils
 
 @loader.tds
 class VoiceRofl(loader.Module):
-    """Saving and sendings voice-rofls"""
+    """Saving and sends voice-rofls"""
 
     strings = {
         "name": "VoiceRofl",
@@ -22,9 +22,6 @@ class VoiceRofl(loader.Module):
         "unexist": "🚫 Rofl not finded!",
         "pick": "ℹ Reply voice!",
         "args": "ℹ Pick name!",
-        "_cmd_doc_saverofl": "<Название> - Save rofl on channel",
-        "_cmd_doc_rofl": "<Название> - Send rofl"
-
     }
 
     strings_ru = {
@@ -36,7 +33,8 @@ class VoiceRofl(loader.Module):
         "pick": "ℹ Выбери голосовое!",
         "args": "ℹ Укажи название!",
         "_cmd_doc_saverofl": "<Название> - Сохранить рофл на канал",
-        "_cmd_doc_rofl": "<Название> - Отправить рофл"
+        "_cmd_doc_rofl": "<Название> - Отправить рофл",
+        "_cls_doc": "Сохраняет и отправляет войс-рофлы",
     }
 
     async def on_dlmod(self, client, db):
@@ -75,6 +73,7 @@ class VoiceRofl(loader.Module):
         return m
 
     async def saveroflcmd(self, message: Message):
+        """<Name> - Save rofl on channel"""
         reply = await message.get_reply_message()
         if reply:
             name = utils.get_args(message)
@@ -96,6 +95,7 @@ class VoiceRofl(loader.Module):
             await self._delmes(message, self.strings("pick"))
 
     async def roflcmd(self, message: Message):
+        """<Name> - Send rofl"""
         name = utils.get_args(message)
         if name:
             response = await self._check(name[0])
