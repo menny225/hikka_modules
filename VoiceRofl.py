@@ -5,6 +5,7 @@ import os
 import time
 
 from pydub import AudioSegment
+from telethon.errors import MessageEmptyError
 from telethon.tl.custom import Message
 
 from .. import loader, utils
@@ -16,10 +17,12 @@ class VoiceRofl(loader.Module):
 
     strings = {
         "name": "VoiceRofl",
+        "download": "📥 Downloading...",
         "upload": "📤 Uploading...",
         "saved": "💾 Saved!",
-        "exist": "🚫 Rofl alredy exist!",
-        "unexist": "🚫 Rofl not finded!",
+        "exist": "🚫 Rofl already exist!",
+        "unexist": "🚫 Rofl not found!",
+        "empty": "ℹ Rofl list is empy!",
         "pick": "ℹ Reply voice!",
         "args": "ℹ Pick name!",
     }
@@ -30,6 +33,7 @@ class VoiceRofl(loader.Module):
         "saved": "💾 Сохранено!",
         "exist": "🚫 Рофл уже существует!",
         "unexist": "🚫 Рофл не найден!",
+        "empty": "ℹ Список рофлов пуст!",
         "pick": "ℹ Выбери голосовое!",
         "args": "ℹ Укажи название!",
         "_cmd_doc_roflsave": "<Голосовое><Название> - Сохранить рофл на канал",
@@ -120,13 +124,16 @@ class VoiceRofl(loader.Module):
     async def rofllistcmd(self, message: Message):
         """Show rofl list"""
         result = ""
-        cl = self.client.iter_messages('VoiceRofls', reverse=True, offset_id=1)
-        async for mess in cl:
-            result += f"{mess.text}\n"
-        await utils.answer(message, result)
+        try:
+            cl = self.client.iter_messages('VoiceRofls', reverse=True, offset_id=1)
+            async for mess in cl:
+                result += f"{mess.text}\n"
+            await utils.answer(message, result)
+        except MessageEmptyError:
+            await self._delmes(message, self.strings("empty"))
 
     async def rofldelcmd(self, message: Message):
-        """<Name> - delete rofl from channel"""
+        """<Name> - Delete rofl from channel"""
         name = utils.get_args_raw(message)
         mess = await self._check(name)
         if mess:
