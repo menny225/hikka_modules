@@ -1,4 +1,4 @@
-__version__ = (1, 0, 0)
+__version__ = (1, 0, 1)
 
 import io
 import os
@@ -32,14 +32,16 @@ class VoiceRofl(loader.Module):
         "unexist": "🚫 Рофл не найден!",
         "pick": "ℹ Выбери голосовое!",
         "args": "ℹ Укажи название!",
-        "_cmd_doc_saverofl": "<Название> - Сохранить рофл на канал",
+        "_cmd_doc_roflsave": "<Голосовое><Название> - Сохранить рофл на канал",
         "_cmd_doc_rofl": "<Название> - Отправить рофл",
+        "_cmd_doc_rofllist": "Список рофлов",
+        "_cmd_doc_rofldel": "<Название> - Удалить рофл",
         "_cls_doc": "Сохраняет и отправляет войс-рофлы",
     }
 
     async def on_dlmod(self, client, db):
-        """Creating chat for logging"""
-        result = await utils.asset_channel(
+        """Creating chat for rofls"""
+        await utils.asset_channel(
             client,
             "VoiceRofls",
             "VoiceRofls",
@@ -72,19 +74,22 @@ class VoiceRofl(loader.Module):
         audio.export(m, format="ogg", codec="libopus", bitrate="64k")
         return m
 
-    async def saveroflcmd(self, message: Message):
-        """<Name> - Save rofl on channel"""
+    async def roflsavecmd(self, message: Message):
+        """<Voice><Name> - Save rofl to channel"""
         reply = await message.get_reply_message()
         if reply:
-            name = utils.get_args(message)
+            name = utils.get_args_raw(message)
             if name:
-                response = await self._check(name[0])
+                response = await self._check(name)
                 if not response:
                     await utils.answer(message, self.strings("download"))
                     voice = await self._voice(reply)
                     await utils.answer(message, self.strings("upload"))
                     await self.client.send_file(
-                        caption=str(name[0]), entity='VoiceRofls', file=voice, voice_note=True
+                        caption=str(name),
+                        entity='VoiceRofls',
+                        file=voice,
+                        voice_note=True
                     )
                     await self._delmes(message, self.strings("saved"))
                 else:
@@ -96,9 +101,9 @@ class VoiceRofl(loader.Module):
 
     async def roflcmd(self, message: Message):
         """<Name> - Send rofl"""
-        name = utils.get_args(message)
+        name = utils.get_args_raw(message)
         if name:
-            response = await self._check(name[0])
+            response = await self._check(name)
             if response:
                 await utils.answer(message, self.strings("download"))
                 voice = await self._voice(response)
@@ -111,3 +116,20 @@ class VoiceRofl(loader.Module):
                 await self._delmes(message, self.strings("unexist"))
         else:
             await self._delmes(message, self.strings("args"))
+
+    async def rofllistcmd(self, message: Message):
+        """Show rofl list"""
+        result = ""
+        cl = self.client.iter_messages('VoiceRofls', reverse=True, offset_id=1)
+        async for mess in cl:
+            result += f"{mess.text}\n"
+        await utils.answer(message, result)
+
+    async def rofldelcmd(self, message: Message):
+        """<Name> - delete rofl from channel"""
+        name = utils.get_args_raw(message)
+        mess = await self._check(name)
+        if mess:
+            await self.client.delete_messages(mess.peer_id, [mess.id])
+        else:
+            await self._delmes(message, self.strings("unexist"))
