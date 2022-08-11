@@ -25,6 +25,7 @@ class VoiceRofl(loader.Module):
         "empty": "ℹ Rofl list is empy!",
         "pick": "ℹ Reply voice!",
         "args": "ℹ Pick name!",
+        "list": "ℹ Rofl list:",
     }
 
     strings_ru = {
@@ -36,6 +37,7 @@ class VoiceRofl(loader.Module):
         "empty": "ℹ Список рофлов пуст!",
         "pick": "ℹ Выбери голосовое!",
         "args": "ℹ Укажи название!",
+        "list": "ℹ Список рофлов:",
         "_cmd_doc_roflsave": "<Голосовое><Название> - Сохранить рофл на канал",
         "_cmd_doc_rofl": "<Название> - Отправить рофл",
         "_cmd_doc_rofllist": "Список рофлов",
@@ -123,11 +125,12 @@ class VoiceRofl(loader.Module):
 
     async def rofllistcmd(self, message: Message):
         """Show rofl list"""
-        result = ""
+        result = self.strings("list")
         try:
             cl = self.client.iter_messages('VoiceRofls', reverse=True, offset_id=1)
             async for mess in cl:
-                result += f"{mess.text}\n"
+                link = await utils.get_message_link(mess)
+                result += f'\n<a href="{link}">{mess.text}</a>'
             await utils.answer(message, result)
         except MessageEmptyError:
             await self._delmes(message, self.strings("empty"))
