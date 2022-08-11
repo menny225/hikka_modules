@@ -1,4 +1,4 @@
-__version__ = (1, 0, 1)
+__version__ = (1, 0, 2)
 
 import io
 import os
@@ -97,7 +97,7 @@ class VoiceRofl(loader.Module):
                 await message.delete()
                 response.text = ""
                 await self.client.send_message(
-                    entity=message.chat,
+                    entity=message.peer_id,
                     message=response,
                     reply_to=reply,
                 )
