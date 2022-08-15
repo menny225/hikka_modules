@@ -1,10 +1,7 @@
-__version__ = (1, 0, 2)
+__version__ = (1, 0, 3)
 
-import io
-import os
 import time
 
-from pydub import AudioSegment
 from telethon.errors import MessageEmptyError
 from telethon.tl.custom import Message
 
@@ -20,7 +17,7 @@ class VoiceRofl(loader.Module):
         "saved": "💾 Saved!",
         "exist": "🚫 Rofl already exist!",
         "unexist": "🚫 Rofl not found!",
-        "empty": "ℹ Rofl list is empy!",
+        "empty": "ℹ Rofl list is empty!",
         "pick": "ℹ Reply voice!",
         "args": "ℹ Pick name!",
         "list": "ℹ Rofl list:",
@@ -68,17 +65,12 @@ class VoiceRofl(loader.Module):
 
     async def roflsavecmd(self, message: Message):
         """<Voice><Name> - Save rofl to channel"""
-        reply = await message.get_reply_message()
-        if reply:
-            name = utils.get_args_raw(message)
-            if name:
+        if reply := await message.get_reply_message():
+            if name := utils.get_args_raw(message):
                 response = await self._check(name)
                 if not response:
                     reply.text = name
-                    await self.client.send_message(
-                        entity='VoiceRofls',
-                        message=reply,
-                    )
+                    await self.client.send_message(entity='VoiceRofls', message=reply)
                     await self._delmes(message, self.strings("saved"))
                 else:
                     await self._delmes(message, self.strings("exist"))
@@ -90,17 +82,12 @@ class VoiceRofl(loader.Module):
     async def roflcmd(self, message: Message):
         """<Reply: optional><Name> - Send rofl"""
         reply = await message.get_reply_message()
-        name = utils.get_args_raw(message)
-        if name:
+        if name := utils.get_args_raw(message):
             response = await self._check(name)
             if response:
                 await message.delete()
                 response.text = ""
-                await self.client.send_message(
-                    entity=message.peer_id,
-                    message=response,
-                    reply_to=reply,
-                )
+                await self.client.send_message(entity=message.peer_id, message=response, reply_to=reply)
             else:
                 await self._delmes(message, self.strings("unexist"))
         else:
@@ -108,13 +95,20 @@ class VoiceRofl(loader.Module):
 
     async def rofllistcmd(self, message: Message):
         """Show rofl list"""
-        result = self.strings("list")
         try:
+            buttons = []
             cl = self.client.iter_messages('VoiceRofls', reverse=True, offset_id=1)
             async for mess in cl:
                 link = await utils.get_message_link(mess)
-                result += f'\n<a href="{link}">{mess.text}</a>'
-            await utils.answer(message, result)
+                button = {'text': mess.text, 'url': link}
+                buttons.append([button])
+            await self.inline.form(
+                text=self.strings('list'),
+                message=message,
+                reply_markup=buttons,
+                force_me=True,
+                ttl=10,
+            )
         except MessageEmptyError:
             await self._delmes(message, self.strings("empty"))
 
