@@ -114,18 +114,18 @@ class ABS(loader.Module):
             }], ]
 
     async def spamcmd(self, message: Message):
-        """MOD Config"""
+        """Config"""
         await self.inline.form(
             text=self.strings('settings'),
             photo='https://raw.githubusercontent.com/menny225/hikka_modules/master/assets/Settings.png',
             message=message,
             reply_markup=self.form(),
             force_me=True,
-            ttl=10*60,
+            ttl=10 * 60,
         )
 
     async def _setter(self, call: InlineCall, param: str):
-        """Changing settiings"""
+        """Changing settings"""
         if param == "notify":
             self._notify = not self._notify
             self.set("notify", self._notify)
@@ -193,16 +193,16 @@ class ABS(loader.Module):
 
     async def watcher(self, message: Message):
         if (
-            getattr(message, "out", False)
-            or not isinstance(message, Message)
-            or not isinstance(message.peer_id, PeerUser)
-            or not self.get("state", False)
-            or utils.get_chat_id(message)
-            in {
-                1271266957,  # @replies
-                777000,  # Telegram Notifications
-                self._tg_id,  # Self
-                }
+                getattr(message, "out", False)
+                or not isinstance(message, Message)
+                or not isinstance(message.peer_id, PeerUser)
+                or not self.get("state", False)
+                or utils.get_chat_id(message)
+                in {
+            1271266957,  # @replies
+            777000,  # Telegram Notifications
+            self._tg_id,  # Self
+        }
         ):
             return
 
@@ -225,13 +225,6 @@ class ABS(loader.Module):
 
         with contextlib.suppress(ValueError):
             entity = await self._client.get_entity(peer)
-
-            if (
-                    entity.bot
-            ):
-                if first_message.sender_id == self._tg_id:
-                    return self._approve(cid)
-            else:
+            if entity.bot and first_message.sender_id == self._tg_id or not entity.bot:
                 return self._approve(cid)
-
         await self._block(cid)
