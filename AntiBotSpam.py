@@ -1,6 +1,5 @@
-__version__ = (1, 0, 3)
+__version__ = (1, 0, 4)
 
-import logging
 import time
 import contextlib
 import re
@@ -8,15 +7,12 @@ import re
 from typing import Union
 from telethon.tl.functions.contacts import BlockRequest, UnblockRequest
 from telethon.tl.functions.messages import DeleteHistoryRequest
-from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.functions.channels import InviteToChannelRequest, EditAdminRequest
 from telethon.tl.types import PeerUser, ChatAdminRights
 from telethon.tl.custom import Message
 
 from .. import loader, utils
 from ..inline.types import InlineCall
-
-logger = logging.getLogger(__name__)
 
 
 def format_(state: Union[bool, None]) -> str:
@@ -29,7 +25,6 @@ def format_(state: Union[bool, None]) -> str:
 @loader.tds
 class ABS(loader.Module):
     """Bans and delete incoming messages from spam-bots"""
-
     strings = {
         "name": "AntiBotSpam",
         "settings": "⚙ <b>Settings:</b>",
@@ -53,7 +48,6 @@ class ABS(loader.Module):
         "clear": "🗑 Список заблокированных очищен!",
         "unbanned": "🕊 Бот {} разблокирован 🕊",
         "unban": "ℹ Выберете сообщение о блокировке бота",
-        "_cmd_doc_clear": "Очистить список пользователей",
         "_cmd_doc_unban": "Разблокировать бота",
         "_cmd_doc_spam": "Конфигурация модуля",
         "_cls_doc": "Блокирует и удаляет входящие сообщения от ботов с которыми вы не начинали диалог",
@@ -62,7 +56,6 @@ class ABS(loader.Module):
     async def client_ready(self, client, db):
         self._chat_id = self.get("chat_id")
         self._whitelist = self.get("whitelist", [])
-        self._blacklist = self.get("blacklist", [])
         self._state = self.get("state", False)
         self._notify = self.get("notify", False)
         self._delete = self.get("delete", False)
@@ -150,23 +143,12 @@ class ABS(loader.Module):
 
             await self._client(UnblockRequest(id=identy[0]))
 
-            user = await self._client(GetFullUserRequest(id=identy[0]))
-            if user.full_user.id in self._blacklist:
-                self._blacklist.remove(user.full_user.id)
-
             await utils.answer(message, self.strings("unbanned").format(identy[0]))
             time.sleep(2)
             await reply.delete()
             await message.delete()
         else:
             await utils.answer(message, self.strings("unban"))
-
-    async def clearcmd(self, message: Message):
-        """Clear blacklist in DB"""
-        self.set("blacklist", [])
-        await utils.answer(message, self.strings("clear"))
-        time.sleep(2)
-        await message.delete()
 
     def _approve(self, user: int):
         self._whitelist += [user]
@@ -175,10 +157,6 @@ class ABS(loader.Module):
         return
 
     async def _block(self, user):
-        self._blacklist += [user]
-        self._blacklist = list(set(self._blacklist))
-        self.set("blacklist", self._blacklist)
-
         await self._client.send_read_acknowledge(user)  # Read message
         await self._client(BlockRequest(id=user))  # Block user
 
@@ -223,8 +201,11 @@ class ABS(loader.Module):
             )
         )[0]
 
+        if first_message.sender_id == self._tg_id:
+            return
+
         with contextlib.suppress(ValueError):
             entity = await self._client.get_entity(peer)
-            if entity.bot and first_message.sender_id == self._tg_id or not entity.bot:
+            if not entity.bot:
                 return self._approve(cid)
         await self._block(cid)
